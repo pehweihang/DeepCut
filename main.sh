@@ -8,8 +8,8 @@
 #SBATCH --nodes=1
 #SBATCH --mem=10G
 #SBATCH --job-name=DC
-#SBATCH --output=/home/FYP/pehw0013/CZ4045_Proj/slurm_out/output_%x_%j.out
-#SBATCH --error=/home/FYP/pehw0013/CZ4045_Proj/slurm_out/error_%x_%j.err
+#SBATCH --output=/home/FYP/pehw0013/fyp/DeepCut/slurm_out/output_%x_%j.out
+#SBATCH --error=/home/FYP/pehw0013/fyp/DeepCut/slurm_out/error_%x_%j.err
 
 module load anaconda
 source activate DeepCut
