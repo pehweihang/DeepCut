@@ -8,3 +8,6 @@ numba
 tqdm
 Pillow
 scipy
+datasets
+hydra-core
+scikit-learn

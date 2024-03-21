@@ -1,35 +1,54 @@
-from torchvision import transforms
+import math
+import urllib.request
+import warnings
+from glob import glob
+
+import cv2
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from matplotlib import cm
 from numba import njit
-from tqdm import tqdm
 from PIL import Image
-import urllib.request
-import numpy as np
-import warnings
-import torch
-import math
-import cv2
+from torchvision import transforms
+from tqdm import tqdm
 
-cmap = 'tab20'
+from datasets import Dataset
+from datasets import Image as DatasetImage
+
+cmap = "tab20"
+
+
 def save_or_show(arr, filename, dir, save=False):
     if save:
-        plt.imsave(dir + filename + '_org' + '.png', arr[0], cmap=cmap)
-        plt.imsave(dir + filename + '_mask' + '.png', arr[1], cmap=cmap)
-        plt.imsave(dir + filename + '_fused' + '.png', arr[2], cmap=cmap)
+        plt.imsave(dir + filename + "_org" + ".png", arr[0], cmap=cmap)
+        plt.imsave(dir + filename + "_mask" + ".png", arr[1], cmap=cmap)
+        plt.imsave(dir + filename + "_fused" + ".png", arr[2], cmap=cmap)
     else:
-        im_show_n(arr, 3, 'org, mask, fused')
+        im_show_n(arr, 4, "org, mask, fused, actual_mask")
 
 
 def graph_to_mask(S, cc, stride, image_tensor, image):
     # Reshape clustered graph
     minus = 1 if stride == 4 else 0
     # -1 is needed only for stride==4 of descriptor extraction
-    S = np.array(torch.reshape(S, (
-        int(image_tensor.shape[2] // stride) - minus, int(image_tensor.shape[3] // stride) - minus)))
+    S = np.array(
+        torch.reshape(
+            S,
+            (
+                int(image_tensor.shape[2] // stride) - minus,
+                int(image_tensor.shape[3] // stride) - minus,
+            ),
+        )
+    )
 
     # check if background is 0 and main object is 1 in segmentation map
-    if (S[0][0] + S[S.shape[0] - 1][0] + S[0][S.shape[1] - 1] + S[S.shape[0] - 1][S.shape[1] - 1]) > 2:
+    if (
+        S[0][0]
+        + S[S.shape[0] - 1][0]
+        + S[0][S.shape[1] - 1]
+        + S[S.shape[0] - 1][S.shape[1] - 1]
+    ) > 2:
         S = 1 - S
 
     # chose largest component (for k == 2)
@@ -37,17 +56,21 @@ def graph_to_mask(S, cc, stride, image_tensor, image):
         S = largest_cc(S)
 
     # mask to original image size
-    mask = cv2.resize(S.astype('float'), (image[:, :, 0].shape[1], image[:, :, 0].shape[0]),
-                      interpolation=cv2.INTER_NEAREST)
+    mask = cv2.resize(
+        S.astype("float"),
+        (image[:, :, 0].shape[1], image[:, :, 0].shape[0]),
+        interpolation=cv2.INTER_NEAREST,
+    )
 
     S = torch.tensor(np.reshape(S, (S.shape[0] * S.shape[0],))).type(torch.LongTensor)
 
     return mask, S
 
+
 def create_adj(F, cut, alpha=1):
     W = F @ F.T
     # if NCut
-    if cut == 0: 
+    if cut == 0:
         # threshold
         W = W * (W > 0)
         # norm
@@ -55,8 +78,9 @@ def create_adj(F, cut, alpha=1):
     # if CC
     else:
         W = W - (W.max() / alpha)
-    
+
     return W
+
 
 def im_show_n(im_arr, n, title):
     """
@@ -66,17 +90,21 @@ def im_show_n(im_arr, n, title):
     :param title: Window name
     @author:Amit
     """
-    fig, axes = plt.subplots(len(im_arr) // n if len(im_arr) % n == 0 else len(im_arr) // n + 1, n, squeeze=False,
-                             dpi=200)
+    fig, axes = plt.subplots(
+        len(im_arr) // n if len(im_arr) % n == 0 else len(im_arr) // n + 1,
+        n,
+        squeeze=False,
+        dpi=200,
+    )
 
     count = 0
     for i in range(len(im_arr)):
         axes[count // n][count % n].imshow(im_arr[i])
-        axes[count // n][count % n].axis('off')
+        axes[count // n][count % n].axis("off")
         count = count + 1
     # Delete axis for non-full rows
     for i in range(len(im_arr) + 1, n):
-        axes[count // n][count % n].axis('off')
+        axes[count // n][count % n].axis("off")
         count = count + 1
 
     fig.canvas.manager.set_window_title(title)
@@ -101,10 +129,11 @@ def discr_ncut(A, B, deg, W):
         for j in range(B[0].shape[0]):
             cut_size = cut_size + W[A[0][i]][B[0][j]]
     # sum of out degrees
-    ncut = 1. / np.sum(deg[A[0]]) + 1. / np.sum(deg[B[0]])
+    ncut = 1.0 / np.sum(deg[A[0]]) + 1.0 / np.sum(deg[B[0]])
     ncut = cut_size * ncut
 
     return ncut
+
 
 # suggested use of discr_ncut
 """
@@ -133,22 +162,17 @@ def load_data(adj, node_feats):
     return node_feats, edge_index, edge_weight
 
 
-def load_data_img(chosen_dir, image_size):
-    """
-    Load image to model (Resize, To tensor, normalize)
-    @param chosen_dir: Directory for loaded image
-    @param image_size: Output size for image
-    @return: Resized image as a tensor and original image as a tuple
-    """
-    # Load image
-    pil_image = Image.open(chosen_dir).convert('RGB')
-
+def transform_image(pil_image, image_size):
     # Define transformations
-    prep = transforms.Compose([
-        transforms.Resize(image_size, interpolation=transforms.InterpolationMode.LANCZOS),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-    ])
+    prep = transforms.Compose(
+        [
+            transforms.Resize(
+                image_size, interpolation=transforms.InterpolationMode.LANCZOS
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ]
+    )
 
     # Resized image tensor
     image_tensor = prep(pil_image)[None, ...]
@@ -159,13 +183,42 @@ def load_data_img(chosen_dir, image_size):
     return image_tensor, image
 
 
+def transform_mask(pil_image, image_size):
+    prep = transforms.Compose(
+        transforms=[
+            transforms.Resize(
+                size=image_size,
+                interpolation=transforms.InterpolationMode.NEAREST,
+            ),
+            transforms.ToTensor(),
+        ]
+    )
+
+    image_tensor = prep(pil_image)[None, ...] > 0.5
+    image = np.array(pil_image)
+
+    return image_tensor, image
+
+
+def load_data_img(chosen_dir, image_size):
+    """
+    Load image to model (Resize, To tensor, normalize)
+    @param chosen_dir: Directory for loaded image
+    @param image_size: Output size for image
+    @return: Resized image as a tensor and original image as a tuple
+    """
+    # Load image
+    pil_image = Image.open(chosen_dir).convert("RGB")
+    return transform_image(pil_image, image_size)
+
+
 def largest_cc(S):
     """
     Gets a segmentation map and finds the largest connected component, discards the rest of the segmentation map.
     @param S: Segmentation map
     @return: Largest connected component in given segmentation map
     """
-    us_cc = cv2.connectedComponentsWithStats(S.astype('uint8'), connectivity=4)
+    us_cc = cv2.connectedComponentsWithStats(S.astype("uint8"), connectivity=4)
     # get indexes of sorted sizes for CCs
     us_cc_stat = us_cc[2]
     cc_idc = np.argsort(us_cc_stat[:, -1])[::-1]
@@ -177,7 +230,7 @@ def largest_cc(S):
         # 99th percentile of 2nd biggest connected component is 0 -> cc_idc[0] is background
         mask: np.ndarray = np.equal(us_cc[1], cc_idc[0])
     else:
-        raise NotImplementedError('No valid decision rule for cropping')
+        raise NotImplementedError("No valid decision rule for cropping")
 
     return mask
 
@@ -190,21 +243,24 @@ def apply_seg_map(img, seg, alpha):
     @param alpha: The opacity of the segmentation overlay, 0==transparent, 1==only segmentation map
     @return: segmented image as a numpy array
     """
-    plt.imsave('./tmp/tmp.png', seg, cmap=cmap)
-    seg = (plt.imread('./tmp/tmp.png')[:,:,:3] * 255).astype(np.uint8)
+    plt.imsave("./tmp/tmp.png", seg, cmap=cmap)
+    seg = (plt.imread("./tmp/tmp.png")[:, :, :3] * 255).astype(np.uint8)
     return ((seg * alpha) + (img * (1 - alpha))).astype(np.uint8)
+
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
     def norm_cdf(x):
         # Computes standard normal cumulative distribution function
-        return (1. + math.erf(x / math.sqrt(2.))) / 2.
+        return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
     if (mean < a - 2 * std) or (mean > b + 2 * std):
-        warnings.warn("mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
-                      "The distribution of values may be incorrect.",
-                      stacklevel=2)
+        warnings.warn(
+            "mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
+            "The distribution of values may be incorrect.",
+            stacklevel=2,
+        )
 
     with torch.no_grad():
         # Values are generated by using a truncated uniform distribution and
@@ -222,7 +278,7 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         tensor.erfinv_()
 
         # Transform to proper mean, std
-        tensor.mul_(std * math.sqrt(2.))
+        tensor.mul_(std * math.sqrt(2.0))
         tensor.add_(mean)
 
         # Clamp to ensure it's in the proper range
@@ -230,7 +286,7 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         return tensor
 
 
-def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
+def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
     return _no_grad_trunc_normal_(tensor, mean, std, a, b)
 
 
@@ -242,6 +298,22 @@ class DownloadProgressBar(tqdm):
 
 
 def download_url(url, output_path):
-    with DownloadProgressBar(unit='B', unit_scale=True,
-                             miniters=1, desc=url.split('/')[-1]) as t:
+    with DownloadProgressBar(
+        unit="B", unit_scale=True, miniters=1, desc=url.split("/")[-1]
+    ) as t:
         urllib.request.urlretrieve(url, filename=output_path, reporthook=t.update_to)
+
+
+def create_dataset(dataset_path):
+    images = glob(f"{dataset_path}/image/*.png")
+    images.extend(glob(f"{dataset_path}/image/*.jpg"))
+    labels = glob(f"{dataset_path}/mask/*.png")
+    labels.extend(glob(f"{dataset_path}/mask/*.jpg"))
+
+    dataset = (
+        Dataset.from_dict({"image": sorted(images), "label": sorted(labels)})
+        .cast_column("image", DatasetImage())
+        .cast_column("label", DatasetImage())
+    )
+
+    return dataset

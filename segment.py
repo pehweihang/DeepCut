@@ -200,15 +200,15 @@ if __name__ == '__main__':
     # mode == 0 Single stage segmentation
     # mode == 1 Two stage segmentation for foreground
     # mode == 2 Two stage segmentation on background and foreground
-    mode = 0
+    mode = 1
     ################################################################################
     # Clustering function
     ################################################################################
     # NCut == 0
     # CC == 1
     # alpha = k-sensetivity paremeter
-    cut = 0
-    alpha = 3
+    cut = 1
+    alpha = 7
     ################################################################################
     # GNN parameters
     ################################################################################
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     # Processing parameters
     ################################################################################
     # Show only largest component in segmentation map (for k == 2)
-    cc = False
+    cc = True
     # apply bilateral solver
     bs = False
     # Apply log binning to extracted descriptors (correspond to smoother segmentation maps)

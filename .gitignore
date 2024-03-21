@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 results/
-output/
+outputs/
 tmp/
 datasets/
 *.pth
