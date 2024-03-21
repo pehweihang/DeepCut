@@ -25,7 +25,6 @@ class Cut(Enum):
 
 
 class Dataset(Enum):
-    CUB = "./datasets/cub"
     DUTS = "./datasets/DUTS/"
 
 
@@ -33,12 +32,12 @@ class Dataset(Enum):
 class Config:
     cut: Cut
     dataset: Dataset
-    alpha: int = 3
+    alpha: int = 7
     epochs: int = 10
     k: int = 2
     pretrained_weights_path: str = "./pretrained.pth"
     res: Tuple[int, int] = (280, 280)
-    stride: int = 8
+    stride: int = 4
     facet: str = "key"
     layer: int = 11
 
