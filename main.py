@@ -102,12 +102,12 @@ def main(cfg: Config):
         S = torch.argmax(S, dim=-1)
         mask, S = util.graph_to_mask(S, True, cfg.stride, image_tensor, image)
         sample_miou = jaccard_score(mask.flatten(), (label_image > 122).flatten())
-        util.save_or_show(
-            [image, mask, util.apply_seg_map(image, mask, alpha=0.7), label_image],
-            filename="",
-            dir="",
-            save=False,
-        )
+        # util.save_or_show(
+        #     [image, mask, util.apply_seg_map(image, mask, alpha=0.7), label_image],
+        #     filename="",
+        #     dir="",
+        #     save=False,
+        # )
         miou += sample_miou
     logger.info(f"MIOU: {miou / len(test_dataset)}")
 

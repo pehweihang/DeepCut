@@ -7,14 +7,12 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from matplotlib import cm
 from numba import njit
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
 from datasets import Dataset
-from datasets import Image as DatasetImage
 
 cmap = "tab20"
 
@@ -310,10 +308,11 @@ def create_dataset(dataset_path):
     labels = glob(f"{dataset_path}/mask/*.png")
     labels.extend(glob(f"{dataset_path}/mask/*.jpg"))
 
-    dataset = (
-        Dataset.from_dict({"image": sorted(images), "label": sorted(labels)})
-        .cast_column("image", DatasetImage())
-        .cast_column("label", DatasetImage())
+    dataset = Dataset.from_dict(
+        {
+            "image": [Image.open(im).convert("RGB") for im in sorted(images)],
+            "label": [Image.open(lb).convert("L") for lb in sorted(labels)],
+        }
     )
 
     return dataset
