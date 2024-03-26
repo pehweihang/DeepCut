@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.nn as pyg_nn
@@ -20,11 +19,14 @@ class GNNpool(nn.Module):
         self.mlp_hidden = mlp_hidden
 
         # GNN conv
-        self.convs = pyg_nn.GCN(input_dim, conv_hidden, 1, act='relu')
+        self.convs = pyg_nn.GCN(input_dim, conv_hidden, 1, act="relu")
         # MLP
         self.mlp = nn.Sequential(
-            nn.Linear(conv_hidden, mlp_hidden), nn.ELU(), nn.Dropout(0.25),
-            nn.Linear(mlp_hidden, self.num_clusters))
+            nn.Linear(conv_hidden, mlp_hidden),
+            nn.ELU(),
+            nn.Dropout(0.25),
+            nn.Linear(mlp_hidden, self.num_clusters),
+        )
 
     def forward(self, data, A):
         """
@@ -44,26 +46,3 @@ class GNNpool(nn.Module):
         S = F.softmax(H)
 
         return A, S
-
-    def loss(self, A, S):
-        """
-        loss calculation, relaxed form of Normalized-cut
-        @param A: Adjacency matrix of the graph
-        @param S: Polled graph (argmax of S)
-        @return: loss value
-        """
-        # cut loss
-        A_pool = torch.matmul(torch.matmul(A, S).t(), S)
-        num = torch.trace(A_pool)
-
-        D = torch.diag(torch.sum(A, dim=-1))
-        D_pooled = torch.matmul(torch.matmul(D, S).t(), S)
-        den = torch.trace(D_pooled)
-        mincut_loss = -(num / den)
-
-        # orthogonality loss
-        St_S = torch.matmul(S.t(), S)
-        I_S = torch.eye(self.num_clusters, device=self.device)
-        ortho_loss = torch.norm(St_S / torch.norm(St_S) - I_S / torch.norm(I_S))
-
-        return mincut_loss + ortho_loss

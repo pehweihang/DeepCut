@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.nn as pyg_nn
@@ -20,11 +19,14 @@ class GNNpool(nn.Module):
         self.mlp_hidden = mlp_hidden
 
         # GNN conv
-        self.convs = pyg_nn.GCN(input_dim, conv_hidden, 1, act='elu')
+        self.convs = pyg_nn.GAT(input_dim, conv_hidden, 1, act="relu")
         # MLP
         self.mlp = nn.Sequential(
-            nn.Linear(conv_hidden, mlp_hidden), nn.ELU(), nn.Dropout(0.25),
-            nn.Linear(mlp_hidden, self.num_clusters))
+            nn.Linear(conv_hidden, mlp_hidden),
+            nn.ELU(),
+            nn.Dropout(0.25),
+            nn.Linear(mlp_hidden, self.num_clusters),
+        )
 
     def forward(self, data, A):
         """
@@ -40,21 +42,7 @@ class GNNpool(nn.Module):
 
         # pass feats through mlp
         H = self.mlp(x)
-
         # cluster assignment for matrix S
         S = F.softmax(H)
 
         return A, S
-
-    def loss(self, A, S):
-        """
-        loss calculation, relaxed form of Normalized-cut
-        @param A: Adjacency matrix of the graph
-        @param S: Polled graph (argmax of S)
-        @return: loss value
-        """
-        # cc loss
-        X = torch.matmul(S, S.t())
-        cc_loss = -torch.sum(A * X)
-
-        return cc_loss

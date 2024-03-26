@@ -1,15 +1,16 @@
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Tuple
+from typing import Any, List, Tuple
 
 import hydra
 import torch
 from hydra.core.config_store import ConfigStore
+from hydra.utils import call, instantiate
+from omegaconf import MISSING
 from sklearn.metrics import jaccard_score
 from torch_geometric.data import Data
-from tqdm import tqdm
 
 import util
 from extractor import ViTExtractor
@@ -19,9 +20,42 @@ logger = logging.getLogger(__name__)
 PRETRAINED_URL = "https://dl.fbaipublicfiles.com/dino/dino_deitsmall8_pretrain/dino_deitsmall8_pretrain_full_checkpoint.pth"
 
 
-class Cut(Enum):
-    CC = 0
-    NCut = 1
+@dataclass
+class LossFunc:
+    _target_: str
+
+
+@dataclass
+class Cut:
+    loss_func: LossFunc = LossFunc("ncut_loss.loss")
+    value: int = 0
+
+
+@dataclass
+class NCut(Cut):
+    loss_func: LossFunc = LossFunc("cc_loss.loss")
+    value: int = 1
+
+
+@dataclass
+class CC(Cut):
+    __target__: str = "cc_loss.loss"
+    value: int = 0
+
+
+@dataclass
+class GNN:
+    _target_: str
+
+
+@dataclass
+class GCN(GNN):
+    _target_: str = "gcn_pool.GNNpool"
+
+
+@dataclass
+class GAT(GNN):
+    _target_: str = "gcn_pool.GNNpool"
 
 
 class Dataset(Enum):
@@ -30,20 +64,37 @@ class Dataset(Enum):
 
 @dataclass
 class Config:
-    cut: Cut
     dataset: Dataset
+    show_img: bool = False
     alpha: int = 7
     epochs: int = 10
     k: int = 2
+    gnn: GNN = MISSING
+    cut: Cut = MISSING
     pretrained_weights_path: str = "./pretrained.pth"
     res: Tuple[int, int] = (280, 280)
     stride: int = 4
     facet: str = "key"
     layer: int = 11
 
+    defaults: List[Any] = field(
+        default_factory=lambda: ["_self_", {"cut": "???"}, {"gnn": "???"}]
+    )
+    hydra: Any = field(
+        default_factory=lambda: {
+            "run": {
+                "dir": "outputs/${hydra.runtime.choices.cut}-{hydra.runtime.choices.gnn}-alpha{alpha}-k{k}--${now:%Y-%m-%d_%H-%M-%S}"
+            }
+        }
+    )
+
 
 cs = ConfigStore.instance()
 cs.store(name="config", node=Config)
+cs.store(group="cut", name="NCut", node=NCut)
+cs.store(group="cut", name="CC", node=CC)
+cs.store(group="gnn", name="GCN", node=GCN)
+cs.store(group="gnn", name="GAT", node=GAT)
 
 
 @hydra.main(config_name="config", version_base="1.2")
@@ -58,12 +109,7 @@ def main(cfg: Config):
         "dino_vits8", cfg.stride, model_dir=cfg.pretrained_weights_path, device=device
     )
 
-    if cfg.cut == Cut.CC:
-        from gnn_pool_cc import GNNpool
-    else:
-        from gnn_pool import GNNpool
-
-    model = GNNpool(384, 64, 32, cfg.k, device).to(device)
+    model = instantiate(cfg.gnn, 384, 64, 32, cfg.k, device).to(device)
     torch.save(model.state_dict(), "model.pt")
     model.train()
 
@@ -71,7 +117,7 @@ def main(cfg: Config):
 
     test_dataset = util.create_dataset(os.path.join(cfg.dataset.value, "test"))
 
-    for sample in tqdm(test_dataset):
+    for i, sample in enumerate(test_dataset):
         im, label = sample["image"], sample["label"]
         image_tensor, image = util.transform_image(im, cfg.res)
         label_tensor, label_image = util.transform_mask(label, cfg.res)
@@ -79,7 +125,7 @@ def main(cfg: Config):
         F = deep_features(
             image_tensor, extractor, cfg.layer, cfg.facet, bin=False, device=device
         )
-        W = util.create_adj(F, cfg.cut, cfg.alpha)
+        W = util.create_adj(F, cfg.cut.value, cfg.alpha)
 
         # Data to pytorch_geometric format
         node_feats, edge_index, edge_weight = util.load_data(W, F)
@@ -91,10 +137,11 @@ def main(cfg: Config):
         )
         opt = torch.optim.AdamW(model.parameters(), lr=0.001)
 
+        A, S = None, None
         for _ in range(cfg.epochs):
             opt.zero_grad()
             A, S = model(data, torch.from_numpy(W).to(device))
-            loss = model.loss(A, S)
+            loss = call(cfg.cut.loss_func, A, S, cfg.k)
             loss.backward()
             opt.step()
 
@@ -102,12 +149,14 @@ def main(cfg: Config):
         S = torch.argmax(S, dim=-1)
         mask, S = util.graph_to_mask(S, True, cfg.stride, image_tensor, image)
         sample_miou = jaccard_score(mask.flatten(), (label_image > 122).flatten())
-        # util.save_or_show(
-        #     [image, mask, util.apply_seg_map(image, mask, alpha=0.7), label_image],
-        #     filename="",
-        #     dir="",
-        #     save=False,
-        # )
+        logger.info(f"Image {i} - mIOU: {sample_miou}")
+        if cfg.show_img:
+            util.save_or_show(
+                [image, mask, util.apply_seg_map(image, mask, alpha=0.7), label_image],
+                filename="",
+                dir="",
+                save=False,
+            )
         miou += sample_miou
     logger.info(f"MIOU: {miou / len(test_dataset)}")
 
