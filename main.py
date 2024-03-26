@@ -83,7 +83,7 @@ class Config:
     hydra: Any = field(
         default_factory=lambda: {
             "run": {
-                "dir": "outputs/${hydra.runtime.choices.cut}-{hydra.runtime.choices.gnn}-alpha{alpha}-k{k}--${now:%Y-%m-%d_%H-%M-%S}"
+                "dir": "outputs/${hydra.runtime.choices.cut}-${hydra.runtime.choices.gnn}-alpha${alpha}-k${k}--${now:%Y-%m-%d_%H-%M-%S}"
             }
         }
     )
