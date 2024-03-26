@@ -27,20 +27,20 @@ class LossFunc:
 
 @dataclass
 class Cut:
+    loss_func: LossFunc
+    value: int
+
+
+@dataclass
+class NCut(Cut):
     loss_func: LossFunc = LossFunc("ncut_loss.loss")
     value: int = 0
 
 
 @dataclass
-class NCut(Cut):
+class CC(Cut):
     loss_func: LossFunc = LossFunc("cc_loss.loss")
     value: int = 1
-
-
-@dataclass
-class CC(Cut):
-    __target__: str = "cc_loss.loss"
-    value: int = 0
 
 
 @dataclass
