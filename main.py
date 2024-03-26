@@ -100,6 +100,7 @@ cs.store(group="gnn", name="GAT", node=GAT)
 @hydra.main(config_name="config", version_base="1.2")
 def main(cfg: Config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch.set_default_device(device)
 
     # Download pretrained weights if not exist
     if not os.path.exists(cfg.pretrained_weights_path):
