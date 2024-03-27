@@ -149,7 +149,7 @@ def main(cfg: Config):
 
         S = S.detach().cpu()
         S = torch.argmax(S, dim=-1)
-        mask, S = util.graph_to_mask(S, True, cfg.stride, image_tensor, image)
+        mask, S = util.graph_to_mask(S, False, cfg.stride, image_tensor, image)
         sample_miou = jaccard_score(mask.flatten(), (label_image > 122).flatten())
         logger.info(f"Image {i} - mIOU: {sample_miou}")
         if cfg.show_img:
