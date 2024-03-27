@@ -60,6 +60,7 @@ class GAT(GNN):
 
 class Dataset(Enum):
     DUTS = "./datasets/DUTS/"
+    ECSSD = "./datasets/ECSSD/"
 
 
 @dataclass
@@ -116,9 +117,9 @@ def main(cfg: Config):
 
     miou = 0
 
-    test_dataset = util.create_dataset(os.path.join(cfg.dataset.value, "test"))
+    dataset = util.create_dataset(cfg.dataset.value)
 
-    for i, sample in enumerate(test_dataset):
+    for i, sample in enumerate(dataset):
         im, label = sample["image"], sample["label"]
         image_tensor, image = util.transform_image(im, cfg.res)
         label_tensor, label_image = util.transform_mask(label, cfg.res)
@@ -159,7 +160,7 @@ def main(cfg: Config):
                 save=False,
             )
         miou += sample_miou
-    logger.info(f"MIOU: {miou / len(test_dataset)}")
+    logger.info(f"MIOU: {miou / len(dataset)}")
 
 
 if __name__ == "__main__":
