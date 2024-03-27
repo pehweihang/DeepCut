@@ -58,33 +58,49 @@ class GAT(GNN):
     _target_: str = "gcn_pool.GNNpool"
 
 
-class Dataset(Enum):
-    DUTS = "./datasets/DUTS/"
-    ECSSD = "./datasets/ECSSD/"
+@dataclass
+class Dataset:
+    path: str
+
+
+@dataclass
+class DUTS(Dataset):
+    path: str = "./datasets/DUTS/test"
+
+
+@dataclass
+class ECSSD(Dataset):
+    path: str = "./datasets/ECSSD/"
 
 
 @dataclass
 class Config:
-    dataset: Dataset
     show_img: bool = False
     alpha: int = 7
     epochs: int = 10
     k: int = 2
-    gnn: GNN = MISSING
-    cut: Cut = MISSING
     pretrained_weights_path: str = "./pretrained.pth"
     res: Tuple[int, int] = (280, 280)
     stride: int = 4
     facet: str = "key"
     layer: int = 11
 
+    dataset: Dataset = MISSING
+    gnn: GNN = MISSING
+    cut: Cut = MISSING
+
     defaults: List[Any] = field(
-        default_factory=lambda: ["_self_", {"cut": "???"}, {"gnn": "???"}]
+        default_factory=lambda: [
+            "_self_",
+            {"cut": "???"},
+            {"gnn": "???"},
+            {"dataset": "???"},
+        ]
     )
     hydra: Any = field(
         default_factory=lambda: {
             "run": {
-                "dir": "outputs/${hydra.runtime.choices.cut}-${hydra.runtime.choices.gnn}-alpha${alpha}-k${k}--${now:%Y-%m-%d_%H-%M-%S}"
+                "dir": "outputs/${hydra.runtime.choices.dataset}/${hydra.runtime.choices.cut}-${hydra.runtime.choices.gnn}-alpha${alpha}-k${k}--${now:%Y-%m-%d_%H-%M-%S}"
             }
         }
     )
@@ -92,6 +108,8 @@ class Config:
 
 cs = ConfigStore.instance()
 cs.store(name="config", node=Config)
+cs.store(group="dataset", name="DUTS", node=DUTS)
+cs.store(group="dataset", name="ECSSD", node=ECSSD)
 cs.store(group="cut", name="NCut", node=NCut)
 cs.store(group="cut", name="CC", node=CC)
 cs.store(group="gnn", name="GCN", node=GCN)
@@ -117,7 +135,7 @@ def main(cfg: Config):
 
     miou = 0
 
-    dataset = util.create_dataset(cfg.dataset.value)
+    dataset = util.create_dataset(cfg.dataset.path)
 
     for i, sample in enumerate(dataset):
         im, label = sample["image"], sample["label"]
