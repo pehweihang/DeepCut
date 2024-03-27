@@ -4,7 +4,7 @@ import torch_geometric.nn as pyg_nn
 
 
 class GNNpool(nn.Module):
-    def __init__(self, input_dim, conv_hidden, mlp_hidden, num_clusters, device):
+    def __init__(self, input_dim, conv_hidden, num_layers, mlp_hidden, num_clusters, device):
         """
         implementation of mincutpool model from: https://arxiv.org/pdf/1907.00481v6.pdf
         @param input_dim: Size of input nodes features
@@ -19,7 +19,7 @@ class GNNpool(nn.Module):
         self.mlp_hidden = mlp_hidden
 
         # GNN conv
-        self.convs = pyg_nn.GAT(input_dim, conv_hidden, 1, act="relu")
+        self.convs = pyg_nn.GAT(input_dim, conv_hidden, num_layers, act="relu")
         # MLP
         self.mlp = nn.Sequential(
             nn.Linear(conv_hidden, mlp_hidden),

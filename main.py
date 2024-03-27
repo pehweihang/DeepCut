@@ -46,6 +46,10 @@ class CC(Cut):
 @dataclass
 class GNN:
     _target_: str
+    input_dim: int = 384
+    conv_hidden: int = 64
+    num_layers: int = 1
+    mlp_hidden: int = 32
 
 
 @dataclass
@@ -129,7 +133,7 @@ def main(cfg: Config):
         "dino_vits8", cfg.stride, model_dir=cfg.pretrained_weights_path, device=device
     )
 
-    model = instantiate(cfg.gnn, 384, 64, 32, cfg.k, device).to(device)
+    model = instantiate(cfg.gnn, num_clusters=cfg.k, device=device).to(device)
     torch.save(model.state_dict(), "model.pt")
     model.train()
 
