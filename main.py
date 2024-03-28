@@ -168,10 +168,13 @@ def main(cfg: Config):
             loss = call(cfg.cut.loss_func, A, S, cfg.k)
             loss.backward()
             opt.step()
+            del loss
+            del A
 
         S = S.detach().cpu()
         S = torch.argmax(S, dim=-1)
         mask, S = util.graph_to_mask(S, False, cfg.stride, image_tensor, image)
+        del S
         sample_miou = jaccard_score(mask.flatten(), (label_image > 122).flatten())
         logger.info(f"Image {i} - mIOU: {sample_miou}")
         if cfg.show_img:
