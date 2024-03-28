@@ -1,7 +1,7 @@
 import logging
+import gc
 import os
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, List, Tuple
 
 import hydra
@@ -183,6 +183,7 @@ def main(cfg: Config):
                 save=False,
             )
         miou += sample_miou
+        gc.collect()
     logger.info(f"MIOU: {miou / len(dataset)}")
 
 
