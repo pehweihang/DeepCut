@@ -59,7 +59,8 @@ class GCN(GNN):
 
 @dataclass
 class GAT(GNN):
-    _target_: str = "gcn_pool.GNNpool"
+    _target_: str = "gat_pool.GNNpool"
+    v2: bool = True
 
 
 @dataclass
