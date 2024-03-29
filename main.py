@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 from dataclasses import dataclass, field
@@ -142,6 +143,8 @@ def main(cfg: Config):
     dataset = util.create_dataset(cfg.dataset.path)
 
     for i, sample in enumerate(dataset):
+        model = instantiate(cfg.gnn, num_clusters=cfg.k, device=device).to(device)
+        model.train()
         im, label = sample["image"], sample["label"]
         image_tensor, image = util.transform_image(im, cfg.res)
         label_tensor, label_image = util.transform_mask(label, cfg.res)
@@ -175,6 +178,7 @@ def main(cfg: Config):
         S = torch.argmax(S, dim=-1)
         mask, S = util.graph_to_mask(S, False, cfg.stride, image_tensor, image)
         del S
+        del model
         sample_miou = jaccard_score(mask.flatten(), (label_image > 122).flatten())
         logger.info(f"Image {i} - mIOU: {sample_miou}")
         if cfg.show_img:
@@ -185,6 +189,8 @@ def main(cfg: Config):
                 save=False,
             )
         miou += sample_miou
+        gc.collect()
+        torch.cuda.empty_cache()
     logger.info(f"MIOU: {miou / len(dataset)}")
 
 
