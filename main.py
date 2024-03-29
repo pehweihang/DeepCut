@@ -61,6 +61,7 @@ class GCN(GNN):
 class GAT(GNN):
     _target_: str = "gat_pool.GNNpool"
     v2: bool = True
+    heads: int = 2
 
 
 @dataclass
@@ -142,7 +143,7 @@ def main(cfg: Config):
 
     dataset = util.create_dataset(cfg.dataset.path)
 
-    for i, sample in enumerate(dataset):
+    for i, sample in [(75, dataset[75])]:
         model = instantiate(cfg.gnn, num_clusters=cfg.k, device=device).to(device)
         model.train()
         im, label = sample["image"], sample["label"]
