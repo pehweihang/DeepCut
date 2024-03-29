@@ -143,7 +143,7 @@ def main(cfg: Config):
 
     dataset = util.create_dataset(cfg.dataset.path)
 
-    for i, sample in [(75, dataset[75])]:
+    for i, sample in enumerate(dataset):
         model = instantiate(cfg.gnn, num_clusters=cfg.k, device=device).to(device)
         model.train()
         im, label = sample["image"], sample["label"]
