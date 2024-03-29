@@ -146,8 +146,8 @@ def main(cfg: Config):
         model = instantiate(cfg.gnn, num_clusters=cfg.k, device=device).to(device)
         model.train()
         im, label = sample["image"], sample["label"]
-        image_tensor, image = util.transform_image(im, cfg.res)
-        label_tensor, label_image = util.transform_mask(label, cfg.res)
+        image_tensor, image = util.load_data_img(im, cfg.res)
+        label_tensor, label_image = util.load_transform_mask(label, cfg.res)
 
         F = deep_features(
             image_tensor, extractor, cfg.layer, cfg.facet, bin=False, device=device

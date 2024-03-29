@@ -181,7 +181,8 @@ def transform_image(pil_image, image_size):
     return image_tensor, image
 
 
-def transform_mask(pil_image, image_size):
+def load_transform_mask(image_path, image_size):
+    pil_image = Image.open(image_path).convert("L")
     prep = transforms.Compose(
         transforms=[
             transforms.Resize(
@@ -310,8 +311,8 @@ def create_dataset(dataset_path):
 
     dataset = Dataset.from_dict(
         {
-            "image": [Image.open(im).convert("RGB") for im in sorted(images)],
-            "label": [Image.open(lb).convert("L") for lb in sorted(labels)],
+            "image": sorted(images),
+            "label": sorted(labels),
         }
     )
 
