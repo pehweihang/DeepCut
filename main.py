@@ -147,7 +147,7 @@ def main(cfg: Config):
         model.train()
         im, label = sample["image"], sample["label"]
         image_tensor, image = util.load_data_img(im, cfg.res)
-        label_tensor, label_image = util.load_transform_mask(label, cfg.res)
+        label_image = util.load_transform_mask(label, cfg.res)
 
         F = deep_features(
             image_tensor, extractor, cfg.layer, cfg.facet, bin=False, device=device

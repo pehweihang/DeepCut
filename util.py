@@ -193,10 +193,9 @@ def load_transform_mask(image_path, image_size):
         ]
     )
 
-    image_tensor = prep(pil_image)[None, ...] > 0.5
     image = np.array(pil_image)
 
-    return image_tensor, image
+    return image
 
 
 def load_data_img(chosen_dir, image_size):
